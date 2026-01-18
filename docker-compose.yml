@@ -1,0 +1,17 @@
+services:
+  webui:
+    image: kosztyk/icloudpd-ui:first
+    container_name: icloudpd_webui
+    environment:
+      - PORT=8090
+      - TZ=${TZ:-Europe/Bucharest}
+      - DATABASE_URL=${DATABASE_URL}
+      - MASTER_KEY=${MASTER_KEY}
+      - TRUST_PROXY_COUNT=${TRUST_PROXY_COUNT:-0}
+      - ICLOUDPD_IMAGE=${ICLOUDPD_IMAGE:-boredazfcuk/icloudpd:latest}
+    ports:
+      - "${WEBUI_PORT:-8090}:8090"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./hostdata:/hostdata
+    restart: unless-stopped
