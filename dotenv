@@ -1,0 +1,15 @@
+# Web UI port exposed on the host
+APP_HTTP_PORT=8080
+
+# PostgreSQL container password (used by the postgres service)
+POSTGRES_PASSWORD=ChangeMeStrong
+
+# App DB connection string (used by the webui service)
+DATABASE_URL=postgresql://icloudpd:ChangeMeStrong@postgres:5432/icloudpd_ui
+TZ=Europe/Bucharest
+TRUST_PROXY_COUNT=0
+ICLOUDPD_IMAGE=boredazfcuk/icloudpd:latest
+
+# Optional: break-glass admin password reset token
+# Use a long random string (hex/base64/url-safe). Not required to be base64.
+ADMIN_RESET_TOKEN=replace-with-long-random-token
