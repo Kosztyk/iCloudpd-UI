@@ -1,0 +1,339 @@
+:root{
+  --bg:#f4f6fb;
+  --card:#ffffff;
+  --text:#141a24;
+  --muted:#5a6577;
+  --border:#dbe1ee;
+  --primary:#2563eb;
+  --danger:#dc2626;
+  --shadow: 0 10px 30px rgba(10,20,40,.08);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+}
+
+:root[data-theme="dark"]{
+  --bg:#0b1220;
+  --card:#101a2f;
+  --text:#e7edf7;
+  --muted:#a6b1c4;
+  --border:#263453;
+  --primary:#3b82f6;
+  --danger:#ef4444;
+  --shadow: 0 10px 30px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:var(--sans);
+  background:var(--bg);
+  color:var(--text);
+}
+
+a{color:var(--primary); text-decoration:none}
+.container{max-width:1440px; width:min(96vw, 1440px); margin:0 auto; padding:22px}
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 18px; border:1px solid var(--border); border-radius:16px;
+  background:var(--card); box-shadow:var(--shadow); position:sticky; top:14px; z-index:10;
+}
+.brand{display:flex; gap:10px; align-items:center; font-weight:700}
+.badge{font-size:12px; padding:4px 10px; border:1px solid var(--border); border-radius:999px; color:var(--muted)}
+.row{display:flex; gap:16px; flex-wrap:wrap}
+.card{min-width:0; 
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:var(--shadow);
+  padding:16px;
+}
+.card h2{margin:0 0 8px 0; font-size:18px}
+.card p{margin:8px 0; color:var(--muted); line-height:1.4}
+.grid{
+  display:grid; grid-template-columns: 260px 1fr; gap:16px; margin-top:16px;
+}
+@media (max-width: 900px){
+  .grid{grid-template-columns:1fr}
+}
+.nav{
+  display:flex; flex-direction:column; gap:10px;
+}
+.nav button{
+  text-align:left;
+  padding:12px 12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+  cursor:pointer;
+}
+.nav button.active{background:rgba(37,99,235,.12); border-color:rgba(37,99,235,.35)}
+.input{
+  width:100%;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text);
+}
+label{display:block; font-size:12px; color:var(--muted); margin:12px 0 6px}
+.btn{
+  padding:10px 14px; border-radius:12px; border:1px solid var(--border);
+  background:var(--primary); color:white; cursor:pointer; font-weight:600;
+}
+.btn.secondary{background:transparent; color:var(--text)}
+.btn.danger{background:var(--danger); border-color:rgba(220,38,38,.4)}
+.actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+.small{font-size:12px; color:var(--muted)}
+.table{width:100%; border-collapse:collapse; margin-top:10px; table-layout:fixed}
+.table th,.table td{padding:10px; border-bottom:1px solid var(--border); text-align:left; font-size:13px overflow-wrap:anywhere; word-break:break-word;}
+.mono{font-family:var(--mono); font-size:12px; overflow-wrap:anywhere; word-break:break-word; white-space:normal}
+
+.toast{
+  position:fixed; right:18px; bottom:18px;
+  background:var(--card); border:1px solid var(--border); border-radius:14px;
+  box-shadow:var(--shadow); padding:12px 14px; max-width:360px; display:none;
+}
+.toast.show{display:block}
+.toggle{
+  display:flex; align-items:center; gap:10px;
+}
+.switch{
+  width:54px; height:30px; border-radius:999px; border:1px solid var(--border);
+  background:transparent; position:relative; cursor:pointer;
+}
+.knob{
+  position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%;
+  background:var(--text);
+  transition:transform .2s ease;
+}
+:root[data-theme="dark"] .knob{transform:translateX(24px)}
+.modal-backdrop{
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  display:none; align-items:center; justify-content:center; padding:18px; z-index:50;
+}
+.modal-backdrop.show{display:flex}
+.modal{
+  width:min(980px, 100%); height:min(640px, 100%);
+  background:var(--card); border:1px solid var(--border); border-radius:16px;
+  box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden;
+}
+.modal-head{
+  display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid var(--border);
+}
+.modal-body{flex:1; background:#0b0f18; color:#e7edf7; font-family:var(--mono); padding:10px; overflow:auto}
+.modal-body .line{white-space:pre-wrap}
+
+
+.table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch}
+.table{min-width:720px}
+.table td{vertical-align:middle}
+.table td.mono{white-space:nowrap}
+
+
+/* Keep action buttons inside tables */
+.table td:last-child{width:170px}
+.table td:last-child .btn{display:block; width:100%; max-width:100%; margin:6px 0; box-sizing:border-box}
+.table td:last-child .btn + .btn{margin-top:8px}
+.card{overflow:hidden}
+
+
+/* --- Accounts table layout fix --- */
+.card .table-wrap{overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:8px}
+.card .table{table-layout:auto}
+.card .table th,.card .table td{white-space:nowrap}
+.card .table td{overflow-wrap:normal; word-break:normal}
+.card .table td:nth-child(3), .card .table th:nth-child(3){white-space:normal; overflow-wrap:anywhere; word-break:break-word; min-width:220px}
+.card .table td:nth-child(5), .card .table th:nth-child(5){white-space:normal; overflow-wrap:anywhere; word-break:break-word; min-width:220px}
+.card .table td:last-child{width:auto}
+.card .table td:last-child .btn{display:inline-flex; width:auto; margin:0 8px 0 0; padding:8px 12px; font-size:13px}
+@media (max-width: 1200px){
+  .card .table td:last-child .btn{font-size:12px; padding:7px 10px}
+}
+/* prevent card clipping buttons */
+.card{overflow:visible}
+
+
+.grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
+@media (max-width: 1100px){ .grid3{grid-template-columns:1fr} }
+
+
+.warn{color: var(--danger);}
+
+
+#sessionBox{
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+
+
+/* Session & Auth formatting */
+#sessionBox{white-space:normal}
+.session-row{margin:0 0 6px 0}
+.session-k{opacity:0.9; font-weight:700}
+.session-v{opacity:0.95}
+.session-sep{height:10px}
+.session-warn{color: var(--danger); font-weight:800; margin:0 0 6px 0}
+
+
+.app-logo{
+  width:26px;
+  height:26px;
+  border-radius:6px;
+  margin-right:10px;
+  vertical-align:middle;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+
+
+.warn-list{margin:0; padding-left:18px}
+.warn-list li{margin:6px 0}
+.muted{opacity:0.75}
+
+.simple-modal-backdrop{
+  position:fixed; inset:0;
+  background: rgba(0,0,0,0.55);
+  display:flex; align-items:center; justify-content:center;
+  z-index:9999;
+}
+.simple-modal{
+  background: rgba(8, 12, 22, 0.96);
+  backdrop-filter: blur(10px);
+
+  width:min(680px, calc(100vw - 24px));
+  background: var(--panel);
+  border:1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+  box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+  overflow:hidden;
+}
+.simple-modal-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+.simple-modal-title{font-weight:900; font-size:16px}
+.simple-modal-body{
+  color: rgba(255,255,255,0.92);
+padding: 14px 16px; line-height:1.45}
+
+/* Header warning badge */
+.warn-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  margin-right:14px; /* space between badge and Theme */
+}
+.warn-pill{
+  display:inline-flex;
+  align-items:center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+  user-select: none;
+}
+.warn-pill.warn-ok{
+  opacity: 0.75;
+}
+.warn-pill.warn-bad{
+  background: rgba(255, 70, 70, 0.16);
+  border-color: rgba(255, 70, 70, 0.45);
+  box-shadow: 0 10px 30px rgba(255,70,70,0.10);
+}
+.warn-dot{
+  width:10px; height:10px;
+  border-radius:999px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.warn-dot.warn-bad{
+  background: rgba(255,70,70,0.95);
+  border-color: rgba(255,70,70,0.55);
+}
+/* =========================
+   Mobile / small screens
+   ========================= */
+
+@media (max-width: 700px){
+  .container{padding:12px;}
+
+  .topbar{flex-direction:column; align-items:stretch; gap:12px;}
+  .brand{flex-wrap:wrap; gap:10px;}
+  .toggle{width:100%; justify-content:space-between;}
+  #logoutBtn{width:100%;}
+
+  .nav{flex-direction:row; overflow-x:auto; gap:8px; padding:10px;}
+  .nav button{flex:0 0 auto; white-space:nowrap;}
+
+  .row{gap:12px;}
+  .card{padding:14px;}
+
+  .actions{flex-direction:column; align-items:stretch;}
+  .actions .btn{width:100%;}
+
+  .table-wrap{overflow:visible;}
+
+  .modal-backdrop{padding:0;}
+  .modal{width:100%; height:100%; max-width:none; border-radius:0; border-left:none; border-right:none;}
+  .modal-head{position:sticky; top:0; z-index:2; background:var(--card);}
+
+  .simple-modal-backdrop{padding:12px;}
+  .simple-modal{width:100%; max-height:90vh;}
+  .simple-modal-head{flex-direction:column; align-items:stretch; gap:10px;}
+  .simple-modal-actions{flex-direction:column; align-items:stretch;}
+  .simple-modal-actions .btn{width:100%;}
+}
+
+/* Turn tables into stacked cards on small screens (applied via JS: table.table-cards + td[data-label]) */
+@media (max-width: 700px){
+  table.table.table-cards,
+  table.table.table-cards thead,
+  table.table.table-cards tbody,
+  table.table.table-cards th,
+  table.table.table-cards tr,
+  table.table.table-cards td{
+    display:block;
+    width:100%;
+  }
+
+  table.table.table-cards thead{display:none;}
+
+  table.table.table-cards tbody{display:block;}
+
+  table.table.table-cards tr{
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px;
+    margin:10px 0;
+  }
+
+  table.table.table-cards td{
+    border:none;
+    padding:6px 0;
+    white-space:normal;
+  }
+
+  table.table.table-cards td:before{
+    content:attr(data-label);
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:2px;
+  }
+
+  table.table.table-cards td:last-child{
+    padding-top:10px;
+  }
+
+  table.table.table-cards td:last-child .btn{
+    width:100%;
+    margin:6px 0 0 0;
+  }
+}

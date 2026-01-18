@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>icloudpd Web UI - Login</title>
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/theme.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <span>icloudpd Web UI</span>
+        <span class="badge">scratch rebuild</span>
+      </div>
+      <div class="toggle">
+        <span class="small">Theme</span>
+        <div class="switch" id="themeSwitch" title="Toggle theme"><div class="knob"></div></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px">
+      <div class="card" style="flex:1; min-width:320px; max-width:560px; margin:0 auto;">
+        <h2 id="title">Sign in</h2>
+        <p id="subtitle">Authenticate to manage iCloud download/sync accounts.</p>
+
+        <div id="setupHint" class="card" style="display:none; margin-top:14px; background:transparent; box-shadow:none;">
+          <p><strong>Initial setup</strong> is required. Create the first admin user below.</p>
+        </div>
+
+        <form id="form">
+          <label>Username</label>
+          <input class="input" id="username" autocomplete="username" />
+          <label>Password</label>
+          <input class="input" id="password" type="password" autocomplete="current-password" />
+          <div class="actions">
+            <button class="btn" type="submit" id="submitBtn">Sign in</button>
+          </div>
+        </form>
+
+        <div id="resetWrap" style="margin-top:12px; display:none">
+          <button class="btn secondary" id="forgotBtn" type="button">Forgot admin password?</button>
+          <div class="small" style="margin-top:6px; opacity:.85">Requires an admin reset token (break-glass) configured on the server.</div>
+        </div>
+
+        <p class="small" style="margin-top:12px">If this UI is behind a reverse proxy, set <span class="mono">TRUST_PROXY_COUNT=1</span>.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="/helpers.js"></script>
+  <script src="/login.js"></script>
+</body>
+</html>

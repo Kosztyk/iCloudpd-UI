@@ -1,1 +1,63 @@
-.
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>icloudpd Web UI</title>
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/theme.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="brand">
+        <img class="app-logo" src="/logo.png" alt="icloudpd" />
+        <span>icloudpd Web UI</span>
+        <span class="badge" id="userBadge">...</span>
+      </div>
+      <div class="row" style="gap:10px; align-items:center">
+        <div class="toggle">
+          <span class="small"><span id="headerAlert" class="badge danger hidden">1 warning</span>
+        Theme</span>
+          <div class="switch" id="themeSwitch" title="Toggle theme"><div class="knob"></div></div>
+        </div>
+        <button class="btn secondary" id="logoutBtn">Logout</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card nav">
+        <button data-tab="dashboard" class="active">Dashboard</button>
+        <button data-tab="accounts">Accounts</button>
+        <button data-tab="users" id="usersTabBtn">Users</button>
+        <button data-tab="help">Help</button>
+      </div>
+
+      <div class="card" id="view"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <div id="modal" class="modal-backdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <strong id="modalTitle">Terminal</strong>
+          <div class="small" id="modalSub"></div>
+        </div>
+        <button class="btn danger" id="modalClose">Close</button>
+      </div>
+      <div class="modal-body" id="termOut"></div>
+      <div style="display:flex; gap:8px; padding:10px; border-top:1px solid var(--border); background:var(--card)">
+        <input class="input" id="termIn" placeholder="Type command or input (Enter to send)" />
+        <button class="btn" id="termSend">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/helpers.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
