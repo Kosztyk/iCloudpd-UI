@@ -1,7 +1,7 @@
 services:
   webui:
     image: kosztyk/icloudpd-ui:latest
-    container_name: icloudpd_webui
+    container_name: icloudpd_ui
     environment:
       - PORT=8090
       - TZ=${TZ:-Europe/Bucharest}
