@@ -56,7 +56,7 @@ services:
     image: postgres:16-alpine
     container_name: icloudpd_postgres
     environment:
-      POSTGRES_DB: icloudpd_webui
+      POSTGRES_DB: icloudpd_ui
       POSTGRES_USER: icloudpd
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
@@ -72,7 +72,7 @@ services:
     image: icloudpd-ui:latest
     # If you build locally, replace the image line with:
     # build: .
-    container_name: icloudpd_webui
+    container_name: icloudpd_ui
     depends_on:
       postgres:
         condition: service_healthy
