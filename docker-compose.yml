@@ -1,6 +1,6 @@
 services:
   webui:
-    image: kosztyk/icloudpd-ui:first
+    image: kosztyk/icloudpd-ui:latest
     container_name: icloudpd_webui
     environment:
       - PORT=8090
