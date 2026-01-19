@@ -15,7 +15,10 @@ async function api(path, opts={}){
   const data = ct.includes("application/json") ? await res.json() : await res.text();
   if (!res.ok) {
     const err = (data && data.error) ? data.error : "request_failed";
-    throw new Error(err);
+    const e = new Error(err);
+    e.details = data;
+    e.status = res.status;
+    throw e;
   }
   return data;
 }

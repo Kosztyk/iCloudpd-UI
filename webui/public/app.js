@@ -312,6 +312,22 @@ function renderUsers(){
   return `
     <h2>Users</h2>
     <p>Manage Web UI users (not iCloud accounts). Only admins can create users.</p>
+
+    <div class="card" style="margin-bottom:12px">
+      <h2>iCloudPD worker image</h2>
+      <div class="small">Configured image: <span class="mono" id="icloudpdImgName">(loading)</span></div>
+      <div class="small">Current digest: <span class="mono" id="icloudpdImgDigest">(loading)</span></div>
+      <div class="small">Last pulled: <span class="mono" id="icloudpdImgPulledAt">(loading)</span></div>
+      <div class="actions" style="gap:8px; flex-wrap:wrap">
+        <button class="btn secondary" id="refreshIcloudpdImgBtn">Refresh</button>
+        <button class="btn secondary" id="pullIcloudpdImgBtn">Pull only (don't rebuild)</button>
+        <button class="btn" id="updateSelectedIcloudpdBtn" ${state.accounts && state.accounts.length ? "" : "disabled"}>Update only selected account</button>
+        <button class="btn" id="rebuildAllIcloudpdBtn">Pull and rebuild all icloudpd containers</button>
+      </div>
+      <div class="small" style="margin-top:8px; opacity:.9">
+        This uses the configured developer image (default <span class="mono">boredazfcuk/icloudpd:latest</span>). "Update selected" is blocked only when that selected account is downloading. "Rebuild all" is blocked while any downloads are running.
+      </div>
+    </div>
     <div class="row">
       <div class="card" style="flex:1; min-width:300px">
         <h2>Create user</h2>
@@ -590,6 +606,151 @@ document.getElementById("restartBtn").addEventListener("click", async ()=>{
   }
 
   if (state.activeTab==="users"){
+
+    const refreshIcloudpdImg = async ()=>{
+      try{
+        const info = await api("/api/admin/icloudpd/image", { method: "GET" });
+        qs("#icloudpdImgName").textContent = info.image || "(unknown)";
+        qs("#icloudpdImgDigest").textContent = info.digest || "(none)";
+        qs("#icloudpdImgPulledAt").textContent = info.last_pulled_at || "(unknown)";
+      }catch(e){
+        qs("#icloudpdImgName").textContent = "(error)";
+        qs("#icloudpdImgDigest").textContent = String(e.message||e);
+        qs("#icloudpdImgPulledAt").textContent = "";
+      }
+    };
+    // Wire iCloudPD update controls
+    const openIcloudpdModal = (title, subtitle) => {
+      document.getElementById("modalTitle").textContent = title;
+      document.getElementById("modalSub").textContent = subtitle;
+      openModal(true);
+
+      const termIn = document.getElementById("termIn");
+      const termSend = document.getElementById("termSend");
+      termIn.value = "";
+      termIn.disabled = true;
+      termSend.disabled = true;
+      document.getElementById("termOut").innerHTML = "";
+      appendTerm("[starting]");
+    };
+
+    const renderDownloadLock = (details) => {
+      const active = (details && details.active) ? details.active : [];
+      appendTerm("[blocked] Downloads are currently running. Try again when downloads finish.");
+      if (active.length){
+        appendTerm("Active containers:");
+        for (const a of active){
+          const id = (a.id != null) ? a.id : "?";
+          const name = a.name || a.container || "(unknown)";
+          appendTerm(`- Account ${id} (${name})`);
+          if (a.lastLine) appendTerm(`    ${a.lastLine}`);
+          if (a.nextDownloadAt) appendTerm(`    Next download: ${a.nextDownloadAt}`);
+        }
+      }
+    };
+
+    qs("#refreshIcloudpdImgBtn").addEventListener("click", refreshIcloudpdImg);
+
+    qs("#pullIcloudpdImgBtn").addEventListener("click", async ()=>{
+      openIcloudpdModal("Pull iCloudPD image", "Pull developer image only (no rebuild)");
+      try{
+        const r = await api("/api/admin/icloudpd/pull-image", { method: "POST" });
+        if (r?.pulled?.digest) appendTerm(`Pulled digest: ${r.pulled.digest}`);
+        if (r?.pulled?.image) appendTerm(`Image: ${r.pulled.image}`);
+        appendTerm("[done]");
+        await refreshIcloudpdImg();
+        toast("Image pulled.");
+      }catch(e){
+        appendTerm(`[error] ${String(e.message||e)}`);
+        toast(String(e.message||e));
+      }
+    });
+
+    const rebuildAll = async ()=>{
+      openIcloudpdModal("Update iCloudPD workers", "Pull image and rebuild all icloudpd containers");
+      try{
+        const r = await api("/api/admin/icloudpd/rebuild-all", { method: "POST" });
+        if (r?.pulled?.digest) appendTerm(`Pulled digest: ${r.pulled.digest}`);
+        if (r?.pulled?.image) appendTerm(`Image: ${r.pulled.image}`);
+        if (Array.isArray(r?.accounts)){
+          appendTerm(`Recreated accounts: ${r.accounts.length}`);
+          for (const a of r.accounts){
+            appendTerm(`Account ${a.id}: ${a.ok ? "OK" : "FAILED"}${a.message ? " - " + a.message : ""}`);
+          }
+        }
+        appendTerm("[done]");
+        await loadData();
+        await refreshIcloudpdImg();
+        toast("Rebuild complete.");
+      }catch(e){
+        if (e.message === "downloads_running"){
+          renderDownloadLock(e.details);
+          toast("Updates blocked: downloads running.");
+          return;
+        }
+        appendTerm(`[error] ${String(e.message||e)}`);
+        toast(String(e.message||e));
+      }
+    };
+
+    const rebuildSelected = async ()=>{
+      if (!state.accounts || !state.accounts.length){
+        toast("No iCloud accounts available.");
+        return;
+      }
+
+      const defaultId = state.activeAccountId || state.accounts[0].id;
+
+      const options = state.accounts.map(a => {
+        const label = a.label ? `${a.label} - ` : "";
+        const txt = `${label}${a.apple_id} (ID ${a.id})`;
+        return `<option value="${a.id}" ${a.id === defaultId ? "selected" : ""}>${escapeHtml(txt)}</option>`;
+      }).join("");
+
+      openFormModal({
+        title: "Update iCloudPD container",
+        subtitle: "Select which iCloud account container to rebuild",
+        bodyHtml: `
+          <label>Account</label>
+          <select class="input" id="upd_acc">${options}</select>
+          <div class="small" style="margin-top:8px; opacity:.9">
+            This action will pull the configured developer image and rebuild only the selected account container.
+            It is blocked only if that selected account is currently downloading.
+          </div>
+        `,
+        saveText: "Update",
+        onSave: async ({ close, root }) => {
+          const id = parseInt(root.querySelector("#upd_acc").value, 10);
+          close();
+          openIcloudpdModal("Update selected worker", `Pull image and rebuild account ID ${id}`);
+          try{
+            const r = await api(`/api/admin/icloudpd/rebuild-account/${id}`, { method: "POST" });
+            if (r?.pulled?.digest) appendTerm(`Pulled digest: ${r.pulled.digest}`);
+            if (r?.pulled?.image) appendTerm(`Image: ${r.pulled.image}`);
+            appendTerm(`Account ${id}: OK`);
+            appendTerm("[done]");
+            await loadData();
+            await refreshIcloudpdImg();
+            toast("Selected account updated.");
+          }catch(e){
+            if (e.message === "downloads_running"){
+              renderDownloadLock(e.details);
+              toast("Updates blocked: downloads running.");
+              return;
+            }
+            appendTerm(`[error] ${String(e.message||e)}`);
+            toast(String(e.message||e));
+          }
+        }
+      });
+    };
+
+    qs("#rebuildAllIcloudpdBtn").addEventListener("click", rebuildAll);
+    qs("#updateSelectedIcloudpdBtn").addEventListener("click", rebuildSelected);
+
+    // Initial info load
+    refreshIcloudpdImg();
+
     document.getElementById("createUserBtn").addEventListener("click", async ()=>{
       try{
         const body = {
