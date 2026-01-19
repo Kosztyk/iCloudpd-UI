@@ -69,7 +69,7 @@ services:
     restart: unless-stopped
 
   icloudpd-webui:
-    image: icloudpd-webui:latest
+    image: icloudpd-ui:latest
     # If you build locally, replace the image line with:
     # build: .
     container_name: icloudpd_webui
