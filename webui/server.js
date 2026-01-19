@@ -413,6 +413,257 @@ app.post("/api/admin/reset-token/rotate", adminRequired, async (req, res) => {
   res.json({ token, envOverride: !!process.env.ADMIN_RESET_TOKEN });
 });
 
+// Admin-only: update / recreate iCloudPD worker containers to use the latest developer image
+// Image reference can be overridden via ICLOUDPD_IMAGE; default is boredazfcuk/icloudpd:latest.
+const ICLOUDPD_IMAGE_SETTING_DIGEST = "icloudpd_image_digest";
+const ICLOUDPD_IMAGE_SETTING_PULLED_AT = "icloudpd_image_pulled_at";
+
+async function pullDockerImage(imageRef) {
+  return new Promise((resolve, reject) => {
+    docker.pull(imageRef, (err, stream) => {
+      if (err) return reject(err);
+      docker.modem.followProgress(stream, (err2, output) => {
+        if (err2) return reject(err2);
+        resolve(output);
+      });
+    });
+  });
+}
+
+async function inspectDockerImage(imageRef) {
+  try {
+    return await docker.getImage(imageRef).inspect();
+  } catch {
+    return null;
+  }
+}
+
+app.get("/api/admin/icloudpd/image", adminRequired, async (req, res) => {
+  const image = process.env.ICLOUDPD_IMAGE || "boredazfcuk/icloudpd:latest";
+  const storedDigest = await getSetting(ICLOUDPD_IMAGE_SETTING_DIGEST);
+  const storedPulledAt = await getSetting(ICLOUDPD_IMAGE_SETTING_PULLED_AT);
+
+  const info = await inspectDockerImage(image);
+  const repoDigest = Array.isArray(info?.RepoDigests) && info.RepoDigests.length ? info.RepoDigests[0] : null;
+
+  res.json({
+    image,
+    digest: storedDigest || repoDigest || null,
+    repoDigest: repoDigest || null,
+    last_pulled_at: storedPulledAt || null,
+  });
+});
+
+// Helper: detect active downloads in managed icloudpd_* containers.
+// IMPORTANT:
+//  - The boredazfcuk/icloudpd worker keeps sync-icloud.sh running even when idle, so "process present" is NOT a valid lock.
+//  - We instead treat a container as "actively downloading" if the most recent state in its logs indicates a run in progress.
+//  - When the last significant state line is "Next download at ...", the container is idle and updates are allowed.
+// If targetAccountId is provided, only that account container is checked (per-account lock).
+function detectActiveDownloadFromLogs(logText) {
+  const lines = String(logText || "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // Identify the most recent "idle" marker.
+  let lastNextIdx = -1;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (/\bNext download at\b/i.test(lines[i])) {
+      lastNextIdx = i;
+      break;
+    }
+  }
+
+  // Identify the most recent "run" markers.
+  const runMarkers = [
+    /Generating list of files in iCloud/i,
+    /New files detected:\s*\d+/i,
+    /Processing user:/i,
+    /Downloading\s+\d+/i,
+    /All photos and videos have been downloaded/i,
+    /Download complete/i,
+    /Download ended at/i,
+  ];
+
+  let lastRunIdx = -1;
+  let lastRunLine = null;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (runMarkers.some((re) => re.test(lines[i]))) {
+      lastRunIdx = i;
+      lastRunLine = lines[i];
+      break;
+    }
+  }
+
+  // If we have an idle marker and it is AFTER the last run marker, the container is idle.
+  // This matches the user's requirement: unlock when the last state is "Next download at ...".
+  if (lastNextIdx >= 0 && (lastRunIdx < 0 || lastNextIdx > lastRunIdx)) {
+    return { active: false, reason: "idle", lastLine: lines[lastNextIdx] || null };
+  }
+
+  // If there is no idle marker visible in the log tail but we have recent run markers,
+  // conservatively treat as active.
+  if (lastRunIdx >= 0) {
+    return { active: true, reason: "run_marker", lastLine: lastRunLine };
+  }
+
+  // Unknown state: do not block updates.
+  return { active: false, reason: "unknown", lastLine: null };
+}
+
+async function listActiveDownloads(targetAccountId = null) {
+  const running = await docker.listContainers({ all: false });
+  const active = [];
+
+  const targetName = (Number.isFinite(targetAccountId) && targetAccountId !== null)
+    ? `icloudpd_${targetAccountId}`
+    : null;
+
+  for (const c of running) {
+    const names = Array.isArray(c?.Names) ? c.Names : [];
+    const raw = names.find((n) => /^\/?icloudpd_\d+$/.test(String(n || "")));
+    if (!raw) continue;
+
+    const name = String(raw).startsWith("/") ? String(raw).slice(1) : String(raw);
+    if (targetName && name !== targetName) continue;
+
+    const id = parseInt(name.split("_")[1] || "0", 10);
+
+    try {
+      // Best-effort: if logs fetch fails, do not block updates.
+      const logTail = await getContainerLogs(name, 200);
+      const state = detectActiveDownloadFromLogs(logTail);
+
+      if (state.active) {
+        const summary = parseSessionSummaryFromLog(logTail);
+        active.push({
+          id: Number.isFinite(id) ? id : null,
+          name,
+          lastLine: state.lastLine || null,
+          nextDownloadAt: summary?.next_download_at || null,
+        });
+      }
+    } catch {
+      // Ignore errors; if we cannot inspect logs, do not block updates.
+    }
+  }
+
+  return active;
+}
+
+// Lock helper. If targetAccountId is provided, only block when that account is actively downloading.
+async function enforceNoDownloadsRunning(req, res, targetAccountId = null) {
+  const force = (req.query?.force === "1") || (req.body && req.body.force === true);
+  const active = await listActiveDownloads(targetAccountId);
+  if (active.length && !force) {
+    res.status(409).json({ error: "downloads_running", active });
+    return false;
+  }
+  return true;
+}
+
+async function pullAndRecordIcloudpdImage(image) {
+  await pullDockerImage(image);
+  const info = await inspectDockerImage(image);
+  const repoDigest = Array.isArray(info?.RepoDigests) && info.RepoDigests.length ? info.RepoDigests[0] : null;
+  if (repoDigest) await setSetting(ICLOUDPD_IMAGE_SETTING_DIGEST, repoDigest);
+  await setSetting(ICLOUDPD_IMAGE_SETTING_PULLED_AT, new Date().toISOString());
+  return { image, digest: repoDigest || null };
+}
+
+// Admin-only: pull developer image only (no container rebuild)
+app.post("/api/admin/icloudpd/pull-image", adminRequired, async (req, res) => {
+  const image = process.env.ICLOUDPD_IMAGE || "boredazfcuk/icloudpd:latest";
+  const pulled = await pullAndRecordIcloudpdImage(image);
+  res.json({ ok: true, pulled });
+});
+
+// Admin-only: pull image (optional) and rebuild all managed icloudpd_* containers.
+app.post("/api/admin/icloudpd/rebuild-all", adminRequired, async (req, res) => {
+  const image = process.env.ICLOUDPD_IMAGE || "boredazfcuk/icloudpd:latest";
+
+  // Lock: do not rebuild while downloads are running.
+  if (!(await enforceNoDownloadsRunning(req, res))) return;
+
+  const doPull = !(req.body && req.body.pull === false);
+  const pulled = doPull ? await pullAndRecordIcloudpdImage(image) : { image, digest: null };
+
+  const accounts = await withDb(async (c) => {
+    const r = await c.query("SELECT * FROM icloud_accounts ORDER BY id");
+    return r.rows;
+  });
+
+  const results = [];
+  for (const acc of accounts) {
+    const id = acc.id;
+    try {
+      await stopAndRemoveContainer(id);
+      await ensureContainerForAccount(acc);
+      results.push({ id, ok: true });
+    } catch (e) {
+      results.push({ id, ok: false, message: String(e?.message || e) });
+    }
+  }
+
+  res.json({ ok: true, pulled: doPull ? pulled : null, accounts: results });
+});
+
+// Admin-only: rebuild only one selected account container (pull optional).
+app.post("/api/admin/icloudpd/rebuild-account/:id", adminRequired, async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+
+  // Lock (per-account): only block when THIS account is actively downloading.
+  if (!(await enforceNoDownloadsRunning(req, res, id))) return;
+
+  const image = process.env.ICLOUDPD_IMAGE || "boredazfcuk/icloudpd:latest";
+  const doPull = !(req.body && req.body.pull === false);
+  const pulled = doPull ? await pullAndRecordIcloudpdImage(image) : { image, digest: null };
+
+  const acc = await withDb(async (c) => {
+    const r = await c.query("SELECT * FROM icloud_accounts WHERE id=$1", [id]);
+    return r.rows[0] || null;
+  });
+  if (!acc) return res.status(404).json({ error: "not_found" });
+
+  try {
+    await stopAndRemoveContainer(id);
+    const r = await ensureContainerForAccount(acc);
+    res.json({ ok: true, pulled: doPull ? pulled : null, account: { id, ok: true, container: r } });
+  } catch (e) {
+    res.status(500).json({ error: "rebuild_failed", message: String(e?.message || e) });
+  }
+});
+
+// Backwards-compatible endpoint: previously "update-image" meant pull + rebuild-all.
+app.post("/api/admin/icloudpd/update-image", adminRequired, async (req, res) => {
+  const image = process.env.ICLOUDPD_IMAGE || "boredazfcuk/icloudpd:latest";
+
+  if (!(await enforceNoDownloadsRunning(req, res))) return;
+
+  const pulled = await pullAndRecordIcloudpdImage(image);
+
+  const accounts = await withDb(async (c) => {
+    const r = await c.query("SELECT * FROM icloud_accounts ORDER BY id");
+    return r.rows;
+  });
+
+  const results = [];
+  for (const acc of accounts) {
+    const id = acc.id;
+    try {
+      await stopAndRemoveContainer(id);
+      await ensureContainerForAccount(acc);
+      results.push({ id, ok: true });
+    } catch (e) {
+      results.push({ id, ok: false, message: String(e?.message || e) });
+    }
+  }
+
+  res.json({ ok: true, pulled, accounts: results });
+});
+
 app.get("/api/me", authRequired, async (req, res) => {
   res.json({ id: req.user.sub, username: req.user.username, role: req.user.role });
 });
