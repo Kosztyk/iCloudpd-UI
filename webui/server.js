@@ -974,8 +974,18 @@ function mapAuthType(v) {
 
 function buildIcloudpdConf(acc) {
   const lines = [];
+  const user = String(acc.container_user || "user").trim() || "user";
+  const userId = parseInt(acc.user_id, 10) || 1000;
+  const groupId = parseInt(acc.group_id, 10) || 1000;
   lines.push(`apple_id=${acc.apple_id}`);
   lines.push(`authentication_type=${mapAuthType(acc.authentication_type)}`);
+  // docker-icloudpd (launcher.sh) requires download_path to be set in /config/icloudpd.conf
+  // and it must point to the *container* path where photos are downloaded.
+  lines.push(`download_path=/home/${user}/iCloud`);
+  // Keep these in the config to remain compatible with newer images that deprecate ENV-only config.
+  lines.push(`user=${user}`);
+  lines.push(`user_id=${userId}`);
+  lines.push(`group_id=${groupId}`);
   if (acc.synchronisation_interval) lines.push(`download_interval=${acc.synchronisation_interval}`);
 
   // docker-icloudpd's sync-icloud.sh has hidden config keys for date filtering.
@@ -1427,5 +1437,3 @@ const webExpired = (daysRemaining !== null) ? (daysRemaining <= 0) : isExpiredLo
     res.status(404).json({ error: "container_not_found", details: String(e?.message || e) });
   }
 });
-
-
